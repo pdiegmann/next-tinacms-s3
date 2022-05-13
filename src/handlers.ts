@@ -10,8 +10,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
-import { DeleteObjectCommand, ListObjectsCommand, S3Client } from "@aws-sdk/client-s3";
+import * as fs from 'fs';
+import { Upload } from "@aws-sdk/lib-storage";
+import { URL } from 'node:url';
+import { DeleteObjectCommand, ListObjectsCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { Media, MediaListOptions } from '@tinacms/toolkit'
 import path from 'path'
 import { NextApiRequest, NextApiResponse } from 'next'
@@ -20,6 +22,7 @@ import { promisify } from 'util'
 
 export interface S3Config {
   endpoint: string
+  cdn_base_url: string,
   bucket: string
   access_key: string
   access_secret: string
@@ -38,7 +41,15 @@ var client;
 export const createMediaHandler = (
   config: S3Config
 ) => {
-  client = new S3Client(config)
+  client = new S3Client({
+    bucketEndpoint: false, 
+    endpoint: config.endpoint,
+    region: config.region,
+    credentials: {
+      accessKeyId: config.access_key,
+      secretAccessKey: config.access_secret
+    }
+  })
 
   return async (req: NextApiRequest, res: NextApiResponse) => {
     const isAuthorized = await config.authorized(req, res)
@@ -80,17 +91,33 @@ async function uploadMedia(req: NextApiRequest, res: NextApiResponse, config?: S
 
   const { directory } = req.body
 
-  //@ts-ignore
-  const command = new PutObjectCommand({
-    Bucket: "",
-    //@ts-ignore
-    Key: directory.replace(/^\//, '') + '/' + req.file.path,
-    //@ts-ignore
-    Body: req.file 
-  })
-  const result = await client.send(command)
+  try {
+    const parallelUploads3 = new Upload({
+      client: client,
+      params: { 
+        Bucket: config.bucket,
+        ACL: 'public-read', 
+        //@ts-ignore
+        Key: directory.replace(/^\//, '') + req.file.originalname,
+        //@ts-ignore
+        Body: fs.createReadStream(req.file.path)
+      },
+      //queueSize: 4, // optional concurrency configuration
+      //partSize: 1024 * 1024 * 64, // optional size of each part, in bytes, at least 5MB
+      leavePartsOnError: false, // optional manually handle dropped parts
+    });
 
-  res.json(result)
+    parallelUploads3.on("httpUploadProgress", (progress) => {
+      console.log(progress);
+    });
+
+    const upload_result = await parallelUploads3.done();
+    res.json(upload_result)
+    
+  } catch (e) {
+    console.log(e)
+    res.send(500)
+  }
 }
 
 async function listMedia(
@@ -100,7 +127,7 @@ async function listMedia(
 ) {
   try {
     const {
-      directory = '""',
+      directory = undefined,
       limit = 500,
       offset,
     } = req.query as MediaListOptions
@@ -109,15 +136,15 @@ async function listMedia(
       !directory || directory === '/' || directory === '""'
 
     const command = new ListObjectsCommand({
-      Bucket: "",
+      Bucket: config.bucket,
       Prefix: useRootDirectory ? "" : directory,
       MaxKeys: limit,
-      Marker: offset as string
+      Marker: offset as string,
     })
 
     const response = await client.send(command);
+    const files = response.Contents ? response.Contents.map(getS3ToTinaFunc(config)) : []
 
-    const files = response.Contents.map(getS3ToTinaFunc(config))
     // folders?
     // type: 'dir'
     const folders = []
@@ -166,20 +193,20 @@ async function deleteAsset(req: NextApiRequest, res: NextApiResponse, config: S3
 }
 function getS3ToTinaFunc(config: S3Config) {
   return function S3ToTina(file: any): Media {
-    const bucketUrl = config.endpoint + "/" + config.bucket + "/";
-    const url = bucketUrl + encodeURIComponent(file.Key)
+    const bucketUrl = "https://" + config.cdn_base_url + "/";
+    const filename = file.Key
+    const url = new URL(bucketUrl + filename)
 
-    const filename = path.basename(file.public_id)
-    const directory = path.dirname(file.public_id)
+    const directory = url.pathname.substring(0, url.pathname.lastIndexOf('/'))
 
     return {
       id: file.Key,
-      filename,
+      filename: filename,
       directory,
-      src: url,
+      src: url.href,
       previewSrc: transformS3Image(
-        url,
-        'w_75,h_75,c_fill,q_auto'
+        url.href,
+        'w_125,h_125,c_fill,q_auto'
       ),
       type: 'file',
     }

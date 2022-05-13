@@ -83,7 +83,7 @@ export class S3MediaStore implements MediaStore {
   async list(options: MediaListOptions): Promise<MediaList> {
     console.debug("enter list")
     const query = this.buildQuery(options)
-    const response = await this.fetchFunction('/api/S3/media' + query)
+    const response = await this.fetchFunction(`/api/S3/media${query}`)
     console.debug("received response")
 
     if (response.status == 401) {
@@ -115,13 +115,11 @@ export class S3MediaStore implements MediaStore {
   }
 
   private buildQuery(options: MediaListOptions) {
-    console.debug("enter build query")
     const params = Object.keys(options)
       .filter((key) => options[key] !== '' && options[key] !== undefined)
       .map((key) => `${key}=${options[key]}`)
       .join('&')
 
-    console.debug("leave build query")
     return `?${params}`
   }
 }

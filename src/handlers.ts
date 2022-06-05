@@ -36,7 +36,7 @@ export const mediaHandlerConfig = {
   },
 }
 
-var client;
+let client : S3Client;
 
 export const createMediaHandler = (
   config: S3Config
@@ -151,7 +151,7 @@ async function listMedia(
 
     res.json({
       items: [...folders, ...files],
-      offset: response.next_cursor,
+      offset: response.NextMarker,
     })
   } catch (e) {
     res.status(500)
@@ -204,7 +204,7 @@ function getS3ToTinaFunc(config: S3Config) {
       filename: filename,
       directory,
       src: url.href,
-      previewSrc: transformS3Image(
+      previewSrc: filename.endsWith('.mp4') ? 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASsAAACoCAMAAACPKThEAAAARVBMVEWqqqrMzMz///+5ubmnp6ekpKTn5+f39/erq6vt7e3JycnY2NixsbHp6en7+/vBwcHh4eHS0tK1tbXx8fHc3Ny9vb3ExMRKCGhtAAAEdklEQVR4nO3d63KbMBSFUTgIJEDcL+//qEV13TppBDvGntMO+5vpn9ZuyRpBZIHSpK5ShpVkJjEMKskShkYrPFrh0QqPVni0wqMVHq3waIVHKzxa4dEKj1Z4tMKjFR6t8GiFRys8WuHRCo9WeLTCoxUerfBohUcrPFrh0QqPVni0wqMVHq3waIVHKzxa4dEKj1Z4tMKjFR6t8GiFRys8WuHRCo9WeLTCoxUerfBohUcrPFrh0QqPVni0wqMVHq3waIWnbOW2X7efqpGb/LHb75j89w/duL9aMUWrm8G4rNVQz3PfF01R3muKouj7fp7rehjSdV2y0f/k0ztcNSuXGLf2pZWP2XutfNXUp6OilpKVSYZAU/b1UHVh0Gx4+ae2Qee892OWdd1apcNcBMJyUdPSsTKjlbLyJr9dj5K9L//PDwrKc7/MIrUWloqVyVqp7hfs770z940aloqVs/L8mWQK6XSwNKxMvY2qZ9/sEt9O17HybXnmi83rE6PyTApWZjkxrML7R6UrloZVKuf+VWeby1jNMp77C0r7okP5XhpWhT33wW7D9i86lm+lYTVFv4856Nwyw8mB+WQKVs4WeeSPzOABLVNJ99IjAlOw8jLHQEwjw/F0fvtGmmpc3FWshqhVITJ1R1om05k0KFiN8VERrET6oxNxlP4aVtuoiE5Fb1bSpvtDy7fFRawWWQ+sthMxi13+Q65VmYwqWHXxdYLfViLzzqLWNnF/z7Htp2C1QlbSVnnsZoSxKisNClZVfJng0UqkjC2u0yr5bCVSfz2wjD21qPNs/7aVFF+/7DJWKW41RF5Gq89WzRiZZhmdBSwFqwGzatfoFOs646rC5lc7U3daJQ9W5bg/b4+u6rwzhc/O6+FnnDAN3Xsoxl3m82B3uM7gDkaNb/trjCuT7axfNdvH5uXQYWe18J2prPVFV+rCuujugyC3lG4QqlhFV+qw9fYku8wasrNlfOaEPOe4XfHWVx4QmsbzDPF7XljhxvVFxpVpzt5LrQU6VV+dzj36c7eN87M3rp9Mw6qS5dxfME0vOpTvpXG92iZYp6aSStN2FSt3bgl4b+L/1pSegTzzYJ6ZWpXHZHSsfGuxJ2K+fHevNKyUntleZRqf2y9iXLFN+3U25ujsBcgrkTozeZ6E/zL56NW3DU5hU0DuB6vzuTmktcckK0VsU6fr8nOHiftrh8mH3SbOZ8uaDn14U3Tx6+1p7fMyJqvLjzuUWjtNv7Z43WvKcrIPG5xsvwLLEO9Kb09cOKWSsavSoQ5b4opic5ls+2GLV2uDX1PMYYtT5sK2FMU9hNr7Uh82Ju2dhOap3TsvTtvqf4pWeLTCoxUerfBohUcrPFrh0QqPVni0wqMVHq3waIVHKzxa4dEKj1Z4tMKjFR6t8GiFRys8WuHRCo9WeLTCoxUerfBohUcrPFrh0QqPVni0wqMVHq3waIVHKzxa4dEKj1Z4tMKjFR6t8GiFRys8WuHRCo9WeLTCoxUerfBohUcrPFrh0QqPVni0gvsBO1Qk0wQ2QcwAAAAASUVORK5CYII=' : transformS3Image(
         url.href,
         'w_125,h_125,c_fill,q_auto'
       ),
